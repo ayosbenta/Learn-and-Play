@@ -1,3 +1,4 @@
+
 // services/geminiService.ts
 import { GoogleGenAI, Type } from "@google/genai";
 import { QuizQuestion } from '../types';
@@ -6,12 +7,10 @@ let aiInstance: GoogleGenAI | null = null;
 
 const getGeminiClient = () => {
   if (!aiInstance) {
-    const apiKey = window.process.env.API_KEY;
-    // The API key is assumed to be valid and accessible. No warning for placeholder string.
-    if (!apiKey) {
-      throw new Error("Gemini API Key is not configured.");
-    }
-    aiInstance = new GoogleGenAI({ apiKey });
+    // The API key must be obtained exclusively from the environment variable `process.env.API_KEY`.
+    // Assume this variable is pre-configured, valid, and accessible.
+    // As per guidelines, 'process.env.API_KEY' is injected automatically and guaranteed to be available.
+    aiInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
   return aiInstance;
 };

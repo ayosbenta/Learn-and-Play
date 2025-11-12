@@ -1,5 +1,5 @@
 // App.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import Navbar from './components/Navbar';
 import Button from './components/Button';
@@ -10,9 +10,10 @@ import QuizGame from './components/QuizGame';
 import FunFactDisplay from './components/FunFactDisplay';
 import RewardItem from './components/RewardItem';
 import ToggleSwitch from './components/ParentControls';
-import ABCGame from './components/ABCGame'; // New import
-import NumberGame from './components/NumberGame'; // New import
-import ColorGame from './components/ColorGame'; // New import
+import ABCGame from './components/ABCGame';
+import NumberGame from './components/NumberGame';
+import ColorGame from './components/ColorGame';
+import SnakeGame from './components/SnakeGame'; // New import for Snake Game
 import { AppSection, UserProgress, CharacterOutfit, ToddlerGameType, GameCompletionCallback } from './types';
 import { MASCOT_NAME, GAME_CATEGORIES, LESSON_TOPICS, INITIAL_CHARACTER_OUTFITS } from './constants';
 
@@ -27,7 +28,8 @@ const App: React.FC = () => {
   });
   const [availableOutfits, setAvailableOutfits] = useState<CharacterOutfit[]>(INITIAL_CHARACTER_OUTFITS);
   const [currentOutfit, setCurrentOutfit] = useState<CharacterOutfit>(INITIAL_CHARACTER_OUTFITS[0]);
-  const [activeToddlerGame, setActiveToddlerGame] = useState<ToddlerGameType | null>(null); // New state for toddler games
+  // New state to manage which game is active. 'quiz' for QuizGame, ToddlerGameType for others.
+  const [activeGame, setActiveGame] = useState<ToddlerGameType | 'quiz' | null>(null);
 
   // Simulate loading user data
   useEffect(() => {
@@ -69,16 +71,7 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleQuizComplete: GameCompletionCallback = (score, total) => {
-    const xpEarned = score * 10; // 10 XP per correct answer
-    addXP(xpEarned, 'Quiz Game');
-    if (score === total) {
-      addBadge(`Quiz Master (${total} questions)`);
-    }
-    console.log(`Quiz completed! You scored ${score}/${total}. Earned ${xpEarned} XP!`);
-  };
-
-  const handleToddlerGameComplete: GameCompletionCallback = (score, total, gameType) => {
+  const handleGameComplete: GameCompletionCallback = (score, total, gameType) => {
     let xpEarned = 0;
     let badgeName = '';
     let activityName = '';
@@ -99,6 +92,16 @@ const App: React.FC = () => {
         badgeName = 'Color Champion';
         activityName = 'Color Match Game';
         break;
+      case ToddlerGameType.SNAKE: // Handle Snake game completion
+        xpEarned = score * 2; // 2 XP per snake segment
+        badgeName = 'Snake Master';
+        activityName = 'Snake Game';
+        break;
+      case 'quiz': // Handle Quiz game completion
+        xpEarned = score * 10; // 10 XP per correct answer
+        badgeName = `Quiz Master (${total} questions)`;
+        activityName = 'Quiz Game';
+        break;
       default:
         break;
     }
@@ -108,9 +111,8 @@ const App: React.FC = () => {
       addBadge(badgeName);
     }
     console.log(`${activityName} completed! You scored ${score}/${total}. Earned ${xpEarned} XP!`);
-    setActiveToddlerGame(null); // Go back to game selection
+    setActiveGame(null); // Go back to game selection after any game completes
   };
-
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value;
@@ -183,40 +185,68 @@ const App: React.FC = () => {
           </div>
         );
       case AppSection.GAME_ZONE:
+        // Fix: Use 'as const' to ensure TypeScript infers the precise literal types for 'type' properties,
+        // which matches the `activeGame` state's union type (`ToddlerGameType | 'quiz'`).
+        const gameChoices = [
+          {
+            type: ToddlerGameType.ABC,
+            icon: '🅰️',
+            title: 'ABC Fun',
+            description: 'Learn letters and sounds!',
+            component: <ABCGame onGameComplete={handleGameComplete} />,
+          },
+          {
+            type: ToddlerGameType.NUMBERS,
+            icon: '🔢',
+            title: '123 Adventure',
+            description: 'Count and recognize numbers!',
+            component: <NumberGame onGameComplete={handleGameComplete} />,
+          },
+          {
+            type: ToddlerGameType.COLORS,
+            icon: '🎨',
+            title: 'Color Match',
+            description: 'Discover and match colors!',
+            component: <ColorGame onGameComplete={handleGameComplete} />,
+          },
+          {
+            type: ToddlerGameType.SNAKE,
+            icon: '🐍',
+            title: 'Snake Classic',
+            description: 'Grow your snake and avoid obstacles!',
+            component: <SnakeGame onGameComplete={handleGameComplete} />,
+          },
+          {
+            type: 'quiz',
+            icon: '🧠',
+            title: 'Quiz Challenge',
+            description: 'Test your knowledge!',
+            component: <QuizGame category="general knowledge" difficulty="easy" onQuizComplete={handleGameComplete} onBackToGames={() => setActiveGame(null)} />,
+          },
+        ] as const;
+
         return (
           <div className="p-4 md:p-8">
             <h2 className="text-3xl font-extrabold text-blue-700 text-center mb-8">Game Zone! Pick your adventure!</h2>
-            {activeToddlerGame === null ? (
-              <>
-                <p className="text-xl text-gray-700 text-center mb-6">Games for Toddlers:</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <Card className="text-center p-5 cursor-pointer hover:bg-blue-50 transition-colors duration-200" onClick={() => setActiveToddlerGame(ToddlerGameType.ABC)}>
-                    <span className="text-5xl mb-4 block" role="img" aria-label="ABC icon">🅰️</span>
-                    <h3 className="text-xl font-bold text-purple-700 mb-2">ABC Fun</h3>
-                    <p className="text-gray-600 text-sm">Learn letters and sounds!</p>
+            {activeGame === null ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                {gameChoices.map(game => (
+                  <Card
+                    key={game.type}
+                    className="text-center p-5 cursor-pointer hover:bg-blue-50 transition-colors duration-200"
+                    onClick={() => setActiveGame(game.type)}
+                  >
+                    <span className="text-5xl mb-4 block" role="img" aria-label="game icon">{game.icon}</span>
+                    <h3 className="text-xl font-bold text-purple-700 mb-2">{game.title}</h3>
+                    <p className="text-gray-600 text-sm">{game.description}</p>
+                    <Button variant="primary" size="md" className="mt-4">Play Now!</Button>
                   </Card>
-                  <Card className="text-center p-5 cursor-pointer hover:bg-blue-50 transition-colors duration-200" onClick={() => setActiveToddlerGame(ToddlerGameType.NUMBERS)}>
-                    <span className="text-5xl mb-4 block" role="img" aria-label="123 icon">🔢</span>
-                    <h3 className="text-xl font-bold text-purple-700 mb-2">123 Adventure</h3>
-                    <p className="text-gray-600 text-sm">Count and recognize numbers!</p>
-                  </Card>
-                  <Card className="text-center p-5 cursor-pointer hover:bg-blue-50 transition-colors duration-200" onClick={() => setActiveToddlerGame(ToddlerGameType.COLORS)}>
-                    <span className="text-5xl mb-4 block" role="img" aria-label="colors icon">🎨</span>
-                    <h3 className="text-xl font-bold text-purple-700 mb-2">Color Match</h3>
-                    <p className="text-gray-600 text-sm">Discover and match colors!</p>
-                  </Card>
-                </div>
-                
-                <h3 className="text-2xl font-bold text-blue-600 text-center mb-6 mt-10">Challenge Yourself with a Quiz!</h3>
-                <QuizGame category="general knowledge" difficulty="easy" onQuizComplete={handleQuizComplete} />
-              </>
-            ) : activeToddlerGame === ToddlerGameType.ABC ? (
-              <ABCGame onGameComplete={handleToddlerGameComplete} />
-            ) : activeToddlerGame === ToddlerGameType.NUMBERS ? (
-              <NumberGame onGameComplete={handleToddlerGameComplete} />
-            ) : activeToddlerGame === ToddlerGameType.COLORS ? (
-              <ColorGame onGameComplete={handleToddlerGameComplete} />
-            ) : null}
+                ))}
+              </div>
+            ) : (
+              // Render the active game component
+              gameChoices.find(g => g.type === activeGame)?.component
+            )}
           </div>
         );
       case AppSection.LEARNING_HUB:

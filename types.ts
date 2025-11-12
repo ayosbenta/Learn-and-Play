@@ -13,6 +13,7 @@ export enum ToddlerGameType {
   ABC = 'abc',
   NUMBERS = 'numbers',
   COLORS = 'colors',
+  SNAKE = 'snake', // Added Snake game type
 }
 
 export interface UserProgress {

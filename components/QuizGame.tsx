@@ -8,10 +8,11 @@ import Card from './Card';
 interface QuizGameProps {
   category: string;
   difficulty: string;
-  onQuizComplete?: (score: number, total: number) => void;
+  onQuizComplete?: (score: number, total: number, gameType?: 'quiz') => void;
+  onBackToGames: () => void; // New prop for back button
 }
 
-const QuizGame: React.FC<QuizGameProps> = ({ category, difficulty, onQuizComplete }) => {
+const QuizGame: React.FC<QuizGameProps> = ({ category, difficulty, onQuizComplete, onBackToGames }) => {
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -61,7 +62,7 @@ const QuizGame: React.FC<QuizGameProps> = ({ category, difficulty, onQuizComplet
     if (questionCount >= 4) { // Let's do 5 questions per quiz
       setQuizFinished(true);
       if (onQuizComplete) {
-        onQuizComplete(score, questionCount + 1);
+        onQuizComplete(score, questionCount + 1, 'quiz');
       }
       return;
     }
@@ -88,7 +89,12 @@ const QuizGame: React.FC<QuizGameProps> = ({ category, difficulty, onQuizComplet
     return (
       <Card className="p-8 text-center">
         <p className="text-red-500 text-lg mb-4">{error}</p>
-        <Button onClick={fetchQuestion} variant="secondary">Try Again</Button>
+        <div className="flex flex-col gap-4 items-center">
+          <Button onClick={fetchQuestion} variant="secondary">Try Again</Button>
+          <Button onClick={onBackToGames} variant="outline" size="sm" className="text-gray-600 border-gray-300">
+            Back to Games
+          </Button>
+        </div>
       </Card>
     );
   }
@@ -98,7 +104,12 @@ const QuizGame: React.FC<QuizGameProps> = ({ category, difficulty, onQuizComplet
       <Card className="p-8 text-center">
         <h3 className="text-3xl font-extrabold text-green-600 mb-4">Quiz Complete! 🎉</h3>
         <p className="text-xl text-gray-800 mb-6">You scored {score} out of {questionCount + 1} questions!</p>
-        <Button onClick={handleRestartQuiz} variant="primary">Play Again</Button>
+        <div className="flex flex-col gap-4 items-center">
+          <Button onClick={handleRestartQuiz} variant="primary">Play Again</Button>
+          <Button onClick={onBackToGames} variant="outline" size="sm" className="text-gray-600 border-gray-300">
+            Back to Games
+          </Button>
+        </div>
       </Card>
     );
   }
@@ -107,6 +118,9 @@ const QuizGame: React.FC<QuizGameProps> = ({ category, difficulty, onQuizComplet
     return (
       <Card className="p-8 text-center text-xl text-red-500">
         No quiz question available.
+        <Button onClick={onBackToGames} variant="outline" size="sm" className="mt-4 text-gray-600 border-gray-300">
+          Back to Games
+        </Button>
       </Card>
     );
   }
@@ -152,10 +166,20 @@ const QuizGame: React.FC<QuizGameProps> = ({ category, difficulty, onQuizComplet
           <p className={`text-xl font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'} mb-4 animate-scale-in`}>
             {isCorrect ? 'Correct! 🎉' : `Oops! The answer was: ${currentQuestion.answer}`}
           </p>
-          <Button onClick={handleNextQuestion} variant="secondary">
-            Next Question
-          </Button>
+          <div className="flex flex-col gap-4 items-center">
+            <Button onClick={handleNextQuestion} variant="secondary">
+              Next Question
+            </Button>
+            <Button onClick={onBackToGames} variant="outline" size="sm" className="text-gray-600 border-gray-300">
+              Back to Games
+            </Button>
+          </div>
         </div>
+      )}
+      {selectedOption === null && (
+        <Button onClick={onBackToGames} variant="outline" size="sm" className="mt-4 text-gray-600 border-gray-300">
+          Back to Games
+        </Button>
       )}
     </Card>
   );
