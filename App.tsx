@@ -13,8 +13,12 @@ import ToggleSwitch from './components/ParentControls';
 import ABCGame from './components/ABCGame';
 import NumberGame from './components/NumberGame';
 import ColorGame from './components/ColorGame';
-import SnakeGame from './components/SnakeGame'; // New import for Snake Game
-import { AppSection, UserProgress, CharacterOutfit, ToddlerGameType, GameCompletionCallback } from './types';
+import SnakeGame from './components/SnakeGame';
+import InteractiveLesson from './components/InteractiveLesson'; // New import
+import Storyteller from './components/Storyteller'; // New import
+import DrawingPad from './components/DrawingPad'; // New import
+
+import { AppSection, UserProgress, CharacterOutfit, ToddlerGameType, GameCompletionCallback, LearningActivityType, LearningCompletionCallback } from './types';
 import { MASCOT_NAME, GAME_CATEGORIES, LESSON_TOPICS, INITIAL_CHARACTER_OUTFITS } from './constants';
 
 const App: React.FC = () => {
@@ -30,6 +34,10 @@ const App: React.FC = () => {
   const [currentOutfit, setCurrentOutfit] = useState<CharacterOutfit>(INITIAL_CHARACTER_OUTFITS[0]);
   // New state to manage which game is active. 'quiz' for QuizGame, ToddlerGameType for others.
   const [activeGame, setActiveGame] = useState<ToddlerGameType | 'quiz' | null>(null);
+  // New state to manage active learning activity
+  const [activeLearningActivity, setActiveLearningActivity] = useState<LearningActivityType | null>(null);
+  const [activeLessonTopic, setActiveLessonTopic] = useState<{ id: string; title: string } | null>(null);
+
 
   // Simulate loading user data
   useEffect(() => {
@@ -113,6 +121,38 @@ const App: React.FC = () => {
     console.log(`${activityName} completed! You scored ${score}/${total}. Earned ${xpEarned} XP!`);
     setActiveGame(null); // Go back to game selection after any game completes
   };
+
+  const handleLearningComplete: LearningCompletionCallback = (xpEarned, activityType, details) => {
+    let activityName = '';
+    let badgeName = '';
+
+    switch (activityType) {
+      case LearningActivityType.INTERACTIVE_LESSON:
+        activityName = `Interactive Lesson: ${details}`;
+        if (xpEarned > 0) badgeName = 'Lesson Learner';
+        break;
+      case LearningActivityType.INTERACTIVE_STORY:
+        activityName = `Interactive Story: ${details}`;
+        if (xpEarned > 0) badgeName = 'Story Explorer';
+        break;
+      case LearningActivityType.DRAWING_PAD:
+        activityName = `Drawing Activity: ${details}`;
+        if (xpEarned > 0) badgeName = 'Creative Artist';
+        break;
+    }
+
+    if (xpEarned > 0) {
+      addXP(xpEarned, activityName);
+      if (badgeName) addBadge(badgeName);
+      console.log(`${activityName} completed! Earned ${xpEarned} XP.`);
+    } else {
+      console.log(`${activityName} activity performed. No XP earned.`);
+    }
+
+    setActiveLearningActivity(null); // Go back to learning hub selection
+    setActiveLessonTopic(null); // Clear active lesson topic
+  };
+
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value;
@@ -253,32 +293,87 @@ const App: React.FC = () => {
         return (
           <div className="p-4 md:p-8">
             <h2 className="text-3xl font-extrabold text-green-700 text-center mb-8">Learning Hub: Explore New Topics!</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              {LESSON_TOPICS.map(topic => (
-                <Card key={topic.id} className="p-5">
-                  <h3 className="text-xl font-bold text-blue-700 mb-2">{topic.title}</h3>
-                  <p className="text-gray-700 mb-4">{topic.description}</p>
-                  <Button onClick={() => addXP(50, topic.title)} variant="primary" size="sm">Start Lesson</Button>
+
+            {activeLearningActivity === null ? (
+              // Learning Hub main menu
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {/* Interactive Lessons */}
+                <Card className="p-5 text-center flex flex-col items-center">
+                  <span className="text-5xl mb-4 block" role="img" aria-label="book">📚</span>
+                  <h3 className="text-xl font-bold text-blue-700 mb-3">Interactive Lessons</h3>
+                  <p className="text-gray-700 mb-4">Learn about new topics with Luno the Lion!</p>
+                  <div className="space-y-2 w-full">
+                    {LESSON_TOPICS.map(topic => (
+                      <Button
+                        key={topic.id}
+                        onClick={() => {
+                          setActiveLearningActivity(LearningActivityType.INTERACTIVE_LESSON);
+                          setActiveLessonTopic(topic);
+                        }}
+                        variant="secondary"
+                        size="sm"
+                        className="w-full"
+                      >
+                        Start {topic.title}
+                      </Button>
+                    ))}
+                  </div>
                 </Card>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <Card className="p-5 text-center">
-                <h3 className="text-xl font-bold text-purple-700 mb-3">Interactive Stories</h3>
-                <p className="text-gray-700 mb-4">Read along and embark on exciting adventures!</p>
-                <Button variant="secondary" size="sm" onClick={() => addXP(30, 'Interactive Story')}>Read a Story</Button>
-              </Card>
-              <Card className="p-5 text-center">
-                <h3 className="text-xl font-bold text-orange-700 mb-3">Drawing Pad</h3>
-                <p className="text-gray-700 mb-4">Unleash your creativity and draw anything!</p>
-                <div className="w-full bg-gray-100 border border-gray-300 rounded-lg p-2 h-40 flex items-center justify-center text-gray-500">
-                  <p>Drawing Pad Placeholder</p>
-                  {/* In a full implementation, this would be a canvas element */}
-                </div>
-                <Button variant="outline" size="sm" className="mt-4" onClick={() => addXP(20, 'Drawing')}>Start Drawing</Button>
-              </Card>
-            </div>
-            <FunFactDisplay topic="space" />
+
+                {/* Interactive Stories */}
+                <Card className="p-5 text-center flex flex-col items-center">
+                  <span className="text-5xl mb-4 block" role="img" aria-label="story">🧚</span>
+                  <h3 className="text-xl font-bold text-purple-700 mb-3">Interactive Stories</h3>
+                  <p className="text-gray-700 mb-4">Choose your adventure and shape the story!</p>
+                  <Button
+                    onClick={() => setActiveLearningActivity(LearningActivityType.INTERACTIVE_STORY)}
+                    variant="primary"
+                    size="md"
+                    className="mt-2"
+                  >
+                    Read a Story
+                  </Button>
+                </Card>
+
+                {/* Drawing Pad */}
+                <Card className="p-5 text-center flex flex-col items-center">
+                  <span className="text-5xl mb-4 block" role="img" aria-label="drawing">✍️</span>
+                  <h3 className="text-xl font-bold text-orange-700 mb-3">Drawing Pad</h3>
+                  <p className="text-gray-700 mb-4">Unleash your creativity and draw anything!</p>
+                  <Button
+                    onClick={() => setActiveLearningActivity(LearningActivityType.DRAWING_PAD)}
+                    variant="outline"
+                    size="md"
+                    className="mt-2 border-orange-500 text-orange-700 hover:bg-orange-100"
+                  >
+                    Start Drawing
+                  </Button>
+                </Card>
+
+                {/* Fun Fact Display remains as a passive element */}
+                <FunFactDisplay topic="space" />
+              </div>
+            ) : (
+              // Render active learning activity
+              activeLearningActivity === LearningActivityType.INTERACTIVE_LESSON && activeLessonTopic ? (
+                <InteractiveLesson
+                  topicId={activeLessonTopic.id}
+                  topicTitle={activeLessonTopic.title}
+                  onLessonComplete={handleLearningComplete}
+                  onBack={() => setActiveLearningActivity(null)}
+                />
+              ) : activeLearningActivity === LearningActivityType.INTERACTIVE_STORY ? (
+                <Storyteller
+                  onStoryComplete={handleLearningComplete}
+                  onBack={() => setActiveLearningActivity(null)}
+                />
+              ) : activeLearningActivity === LearningActivityType.DRAWING_PAD ? (
+                <DrawingPad
+                  onDrawingComplete={handleLearningComplete}
+                  onBack={() => setActiveLearningActivity(null)}
+                />
+              ) : null
+            )}
           </div>
         );
       case AppSection.REWARDS:

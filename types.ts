@@ -16,6 +16,12 @@ export enum ToddlerGameType {
   SNAKE = 'snake', // Added Snake game type
 }
 
+export enum LearningActivityType {
+  INTERACTIVE_LESSON = 'interactive-lesson',
+  INTERACTIVE_STORY = 'interactive-story',
+  DRAWING_PAD = 'drawing-pad',
+}
+
 export interface UserProgress {
   name: string;
   xp: number;
@@ -44,4 +50,18 @@ export interface CharacterOutfit {
 
 export interface GameCompletionCallback {
   (score: number, total: number, gameType?: ToddlerGameType | 'quiz'): void;
+}
+
+export interface LearningCompletionCallback {
+  (xpEarned: number, activityName: LearningActivityType, details?: string): void;
+}
+
+export interface LessonSegment {
+  speaker: 'luno' | 'user';
+  text: string;
+}
+
+export interface StorySegment {
+  text: string;
+  choices?: string[];
 }

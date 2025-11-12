@@ -1,7 +1,7 @@
 
 // services/geminiService.ts
 import { GoogleGenAI, Type } from "@google/genai";
-import { QuizQuestion } from '../types';
+import { QuizQuestion, LessonSegment, StorySegment } from '../types';
 
 let aiInstance: GoogleGenAI | null = null;
 
@@ -83,5 +83,112 @@ export const generateQuizQuestion = async (category: string, difficulty: string)
       options: ['Red', 'Green', 'Blue', 'Yellow'],
       answer: 'Blue',
     }; // Fallback quiz question
+  }
+};
+
+export const generateLessonSegment = async (
+  topic: string,
+  lessonHistory: LessonSegment[],
+  userQuestion?: string
+): Promise<string> => {
+  try {
+    const ai = getGeminiClient();
+    let prompt = `You are Luno the Lion, a friendly and knowledgeable tutor for kids under 12. Guide a child through a lesson on "${topic}". Keep explanations simple, engaging, and in short paragraphs.
+
+Current lesson history:
+${lessonHistory.map(s => `${s.speaker === 'luno' ? 'Luno' : 'You'}: ${s.text}`).join('\n')}
+
+`;
+
+    if (userQuestion) {
+      prompt += `The child just asked: "${userQuestion}". Please answer their question clearly and then continue the lesson based on the previous segment.`;
+    } else {
+      prompt += `Provide the next part of the lesson.`;
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: `You are Luno the Lion, a friendly and knowledgeable tutor for kids under 12. Guide a child through a lesson on "${topic}". Keep explanations simple, engaging, and in short paragraphs.`,
+        maxOutputTokens: 150,
+        temperature: 0.8,
+        thinkingConfig: { thinkingBudget: 50 },
+      },
+    });
+    return response.text.trim();
+  } catch (error) {
+    console.error("Error generating lesson segment:", error);
+    return userQuestion
+      ? "Oops! I'm having trouble thinking. Could you try asking again or move to the next part?"
+      : "Let's learn something new!";
+  }
+};
+
+export const generateStorySegment = async (
+  genre: string,
+  storyHistory: StorySegment[],
+  userChoice?: string
+): Promise<StorySegment | null> => {
+  try {
+    const ai = getGeminiClient();
+    let prompt = `You are Luno the Lion, a magical storyteller for kids under 12. Tell an interactive story in the "${genre}" genre. Keep each segment short and exciting. After a few segments, offer two distinct choices for the child to decide what happens next.
+
+Current story:
+${storyHistory.map(s => s.text + (s.choices ? `\nChoices: ${s.choices.join(' or ')}` : '')).join('\n')}
+`;
+
+    if (userChoice) {
+      prompt += `The child chose: "${userChoice}". Continue the story based on this choice.`;
+    } else {
+      prompt += `Start the story, or provide the next segment.`;
+    }
+
+    // Fix: Changed prompt to request 'text' property instead of 'storyText' to match StorySegment interface.
+    prompt += `\n\nFormat your response as a JSON object with "text" and an optional "choices" array (2 choices).`;
+
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: `You are Luno the Lion, a magical storyteller for kids under 12. Tell an interactive story in the "${genre}" genre. Keep each segment short and exciting. After a few segments, offer two distinct choices for the child to decide what happens next.`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            // Fix: Changed responseSchema to define 'text' property instead of 'storyText'.
+            text: { type: Type.STRING },
+            choices: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              maxItems: 2,
+              minItems: 2,
+              description: "Optional choices for the user to make to continue the story. Provide exactly two choices when present."
+            }
+          },
+          // Fix: Changed required property to 'text'.
+          required: ["text"],
+        },
+        maxOutputTokens: 250,
+        temperature: 0.9,
+        thinkingConfig: { thinkingBudget: 120 },
+      },
+    });
+
+    const jsonStr = response.text.trim();
+    const storySegment: StorySegment = JSON.parse(jsonStr);
+
+    // Fix: Validated 'text' property instead of 'storyText'.
+    if (storySegment.text) {
+      return storySegment;
+    } else {
+      console.error("Invalid story segment format received:", storySegment);
+      return { text: "The story took an unexpected turn and needs to restart. Let's try again!" };
+    }
+
+  } catch (error) {
+    console.error("Error generating story segment:", error);
+    return { text: "Luno got tangled in his own story! Let's try to tell a different one.", choices: [] };
   }
 };
