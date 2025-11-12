@@ -9,7 +9,7 @@ import AudioPlayer from './components/AudioPlayer';
 import QuizGame from './components/QuizGame';
 import FunFactDisplay from './components/FunFactDisplay';
 import RewardItem from './components/RewardItem';
-import ToggleSwitch from './components/ParentControls';
+import ToggleSwitch from './components/ToggleSwitch'; // Updated import path for ToggleSwitch
 import ABCGame from './components/ABCGame';
 import NumberGame from './components/NumberGame';
 import ColorGame from './components/ColorGame';
@@ -38,8 +38,16 @@ const App: React.FC = () => {
   const [activeLearningActivity, setActiveLearningActivity] = useState<LearningActivityType | null>(null);
   const [activeLessonTopic, setActiveLessonTopic] = useState<{ id: string; title: string } | null>(null);
 
+  // Parental Control States
+  const [isSafeMode, setIsSafeMode] = useState<boolean>(true);
+  const [screenTimeLimitMinutes, setScreenTimeLimitMinutes] = useState<number>(60);
+  const [isLeaderboardDisabled, setIsLeaderboardDisabled] = useState<boolean>(false);
+  // Custom Learning Plan States
+  const [learningPlanFocusSubject, setLearningPlanFocusSubject] = useState<string>('Math');
+  const [learningPlanDifficulty, setLearningPlanDifficulty] = useState<string>('Easy');
 
-  // Simulate loading user data
+
+  // Simulate loading user data and parental controls
   useEffect(() => {
     const savedName = localStorage.getItem('learnPlayWorldUserName');
     if (savedName) {
@@ -55,6 +63,21 @@ const App: React.FC = () => {
       const outfit = INITIAL_CHARACTER_OUTFITS.find(o => o.id === savedOutfitId);
       if (outfit) setCurrentOutfit(outfit);
     }
+
+    // Load parental controls
+    const savedSafeMode = localStorage.getItem('learnPlayWorldSafeMode');
+    if (savedSafeMode !== null) setIsSafeMode(JSON.parse(savedSafeMode));
+    const savedScreenTime = localStorage.getItem('learnPlayWorldScreenTimeLimit');
+    if (savedScreenTime !== null) setScreenTimeLimitMinutes(JSON.parse(savedScreenTime));
+    const savedLeaderboardDisabled = localStorage.getItem('learnPlayWorldLeaderboardDisabled');
+    if (savedLeaderboardDisabled !== null) setIsLeaderboardDisabled(JSON.parse(savedLeaderboardDisabled));
+
+    // Load learning plan
+    const savedFocusSubject = localStorage.getItem('learnPlayWorldFocusSubject');
+    if (savedFocusSubject) setLearningPlanFocusSubject(savedFocusSubject);
+    const savedDifficulty = localStorage.getItem('learnPlayWorldDifficulty');
+    if (savedDifficulty) setLearningPlanDifficulty(savedDifficulty);
+
   }, []);
 
   // Save progress whenever it changes
@@ -62,6 +85,27 @@ const App: React.FC = () => {
     localStorage.setItem('learnPlayWorldProgress', JSON.stringify(userProgress));
     localStorage.setItem('learnPlayWorldCurrentOutfit', currentOutfit.id);
   }, [userProgress, currentOutfit]);
+
+  // Save parental controls whenever they change
+  useEffect(() => {
+    localStorage.setItem('learnPlayWorldSafeMode', JSON.stringify(isSafeMode));
+  }, [isSafeMode]);
+
+  useEffect(() => {
+    localStorage.setItem('learnPlayWorldScreenTimeLimit', JSON.stringify(screenTimeLimitMinutes));
+  }, [screenTimeLimitMinutes]);
+
+  useEffect(() => {
+    localStorage.setItem('learnPlayWorldLeaderboardDisabled', JSON.stringify(isLeaderboardDisabled));
+  }, [isLeaderboardDisabled]);
+
+  // Save learning plan when explicitly saved
+  const handleSaveLearningPlan = useCallback(() => {
+    localStorage.setItem('learnPlayWorldFocusSubject', learningPlanFocusSubject);
+    localStorage.setItem('learnPlayWorldDifficulty', learningPlanDifficulty);
+    alert('Learning plan saved!');
+  }, [learningPlanFocusSubject, learningPlanDifficulty]);
+
 
   const addXP = (amount: number, activity: string) => {
     setUserProgress(prev => ({
@@ -172,6 +216,38 @@ const App: React.FC = () => {
       alert(`Not enough XP! You need ${outfit.cost - userProgress.xp} more XP.`);
     }
   };
+
+  const handleResetAllProgress = useCallback(() => {
+    if (window.confirm("Are you sure you want to reset ALL progress and settings? This cannot be undone!")) {
+      // Clear all relevant localStorage items
+      localStorage.removeItem('learnPlayWorldUserName');
+      localStorage.removeItem('learnPlayWorldProgress');
+      localStorage.removeItem('learnPlayWorldCurrentOutfit');
+      localStorage.removeItem('learnPlayWorldSafeMode');
+      localStorage.removeItem('learnPlayWorldScreenTimeLimit');
+      localStorage.removeItem('learnPlayWorldLeaderboardDisabled');
+      localStorage.removeItem('learnPlayWorldFocusSubject');
+      localStorage.removeItem('learnPlayWorldDifficulty');
+
+      // Reset all states to initial values
+      setUserName('Young Learner');
+      setUserProgress({
+        name: 'Young Learner',
+        xp: 0,
+        badges: [],
+        recentActivities: [],
+      });
+      setCurrentOutfit(INITIAL_CHARACTER_OUTFITS[0]);
+      setIsSafeMode(true);
+      setScreenTimeLimitMinutes(60);
+      setIsLeaderboardDisabled(false);
+      setLearningPlanFocusSubject('Math');
+      setLearningPlanDifficulty('Easy');
+      
+      setCurrentSection(AppSection.HOME); // Go back to home after reset
+      alert("All progress and settings have been reset.");
+    }
+  }, []);
 
   const renderSection = () => {
     switch (currentSection) {
@@ -433,9 +509,6 @@ const App: React.FC = () => {
           </div>
         );
       case AppSection.PARENTS:
-        const [isSafeMode, setIsSafeMode] = useState(true);
-        const [screenTimeLimit, setScreenTimeLimit] = useState(60);
-
         return (
           <div className="p-4 md:p-8">
             <h2 className="text-3xl font-extrabold text-purple-700 text-center mb-8">Parent Dashboard</h2>
@@ -453,11 +526,15 @@ const App: React.FC = () => {
                   className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
-              <h4 className="text-xl font-semibold text-purple-600 mt-6 mb-3">Learning Milestones</h4>
+              <h4 className="text-xl font-semibold text-purple-600 mt-6 mb-3">Recent Activities</h4>
               <ul className="list-disc pl-5 text-gray-700 space-y-1">
-                <li>Completed 3 Math Missions</li>
-                <li>Mastered 5 new vocabulary words</li>
-                <li>Explored the Solar System lesson</li>
+                 {userProgress.recentActivities.length > 0 ? (
+                  userProgress.recentActivities.map((activity, index) => (
+                    <li key={index} className="text-gray-700">{activity}</li>
+                  ))
+                ) : (
+                  <p className="text-gray-500">No recent activities.</p>
+                )}
               </ul>
             </Card>
 
@@ -465,22 +542,32 @@ const App: React.FC = () => {
               <h3 className="text-2xl font-bold text-green-600 mb-4">Custom Learning Plan</h3>
               <div className="mb-4">
                 <label htmlFor="focusSubject" className="block text-gray-700 font-medium mb-1">Focus Subject:</label>
-                <select id="focusSubject" className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400">
-                  <option>Math</option>
-                  <option>Reading</option>
-                  <option>Science</option>
-                  <option>World Exploration</option>
+                <select
+                  id="focusSubject"
+                  value={learningPlanFocusSubject}
+                  onChange={(e) => setLearningPlanFocusSubject(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+                >
+                  <option value="Math">Math</option>
+                  <option value="Reading">Reading</option>
+                  <option value="Science">Science</option>
+                  <option value="World Exploration">World Exploration</option>
                 </select>
               </div>
               <div className="mb-4">
                 <label htmlFor="difficulty" className="block text-gray-700 font-medium mb-1">Difficulty:</label>
-                <select id="difficulty" className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400">
-                  <option>Easy</option>
-                  <option>Medium</option>
-                  <option>Hard</option>
+                <select
+                  id="difficulty"
+                  value={learningPlanDifficulty}
+                  onChange={(e) => setLearningPlanDifficulty(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+                >
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
                 </select>
               </div>
-              <Button variant="primary" size="md" className="w-full">Save Plan</Button>
+              <Button onClick={handleSaveLearningPlan} variant="primary" size="md" className="w-full">Save Plan</Button>
             </Card>
 
             <Card className="p-6">
@@ -491,15 +578,15 @@ const App: React.FC = () => {
                   <span className="text-base text-gray-700 font-medium">Screen Time Limit (minutes)</span>
                   <input
                     type="number"
-                    value={screenTimeLimit}
-                    onChange={(e) => setScreenTimeLimit(Number(e.target.value))}
+                    value={screenTimeLimitMinutes}
+                    onChange={(e) => setScreenTimeLimitMinutes(Number(e.target.value))}
                     className="w-20 p-1 border border-gray-300 rounded-md text-center"
                     min="10"
                     max="180"
                   />
                 </div>
-                <ToggleSwitch label="Disable Leaderboard" initialState={false} onToggle={() => {}} />
-                <Button variant="outline" size="md" className="w-full mt-4 border-red-400 text-red-600 hover:bg-red-50">Reset All Progress</Button>
+                <ToggleSwitch label="Disable Leaderboard" initialState={isLeaderboardDisabled} onToggle={setIsLeaderboardDisabled} />
+                <Button onClick={handleResetAllProgress} variant="outline" size="md" className="w-full mt-4 border-red-400 text-red-600 hover:bg-red-50">Reset All Progress</Button>
               </div>
             </Card>
           </div>
